@@ -49,10 +49,28 @@ passport.serializeUser((user, done) => {
 });
 
 passport.deserializeUser((id, done) => {
-  User.findById(id).then((user) => {
-    done(null, user);
+  User.findById(id, (err, user) => {
+    done(err, user);
   });
 });
+
+// passport.use(
+//   new GoogleStrategy(
+//     {
+//       clientID: process.env.CLIENT_ID,
+//       clientSecret: process.env.CLIENT_SECRET,
+//       callbackURL: "http://localhost:3000/auth/google/secrets",
+//       userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+//     },
+//     (accessToken, refreshToken, profile, cb) => {
+//       console.log(profile);
+
+//       User.findOrCreate({ googleId: profile.id }, function (err, user) {
+//         return cb(err, user);
+//       });
+//     }
+//   )
+// );
 
 passport.use(
   new GoogleStrategy(
@@ -62,14 +80,6 @@ passport.use(
       callbackURL: "http://localhost:3000/auth/google/secrets",
     },
     (accessToken, refreshToken, profile, cb) => {
-      // Users.findOrCreate({googleId:profile.id}, (err, user)=>{
-      //   if(user){
-      //     console.log('User was found');
-      //   }else{
-      //     console.log(err);
-      //   }
-      //   return cb(err,user);
-      // });
       User.findOne({ googleId: profile.id }, (err, user) => {
         if (user) {
           console.log("User was Found");
@@ -104,7 +114,7 @@ app.get(
   passport.authenticate("google", { failureRedirect: "/login" }),
   (req, res) => {
     // Successful authentication, redirect secrets page.
-    res.redirect("/");
+    res.redirect("/secrets");
   }
 );
 
