@@ -10,6 +10,7 @@ const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const findOrCreate = require("mongoose-findorcreate");
+const FacebookStrategy = require("passport-facebook").Strategy;
 
 const app = express();
 const port = 3000;
@@ -36,6 +37,7 @@ const userSchema = new mongoose.Schema({
   password: String,
   googleId: String,
   secret: String,
+  facebookId: String,
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -75,6 +77,7 @@ passport.deserializeUser((id, done) => {
 
 //BETTER USE THE CODE BELOW
 
+//GOOGLE
 passport.use(
   new GoogleStrategy(
     {
@@ -103,6 +106,35 @@ passport.use(
   )
 );
 
+//FACEBOOK
+passport.use(
+  new FacebookStrategy(
+    {
+      clientID: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      callbackURL: "http://localhost:3000/auth/facebook/secrets",
+    },
+    (accessToken, refreshToken, profile, cb) => {
+      User.findOne({ facebookId: profile.id }, (err, user) => {
+        if (user) {
+          console.log("User was Found");
+          cb(null, user);
+        } else {
+          console.log("No user found, adding new user to DB");
+          newUser = new User({
+            facebookId: profile.id,
+            username: profile.name.givenName,
+          });
+          newUser.save(() => {
+            console.log("This user is saved");
+          });
+          cb(null, newUser);
+        }
+      });
+    }
+  )
+);
+
 app.get("/", (req, res) => {
   res.render("home");
 });
@@ -115,6 +147,20 @@ app.get(
 app.get(
   "/auth/google/secrets",
   passport.authenticate("google", { failureRedirect: "/login" }),
+  (req, res) => {
+    // Successful authentication, redirect secrets page.
+    res.redirect("/secrets");
+  }
+);
+
+app.get(
+  "/auth/facebook",
+  passport.authenticate("facebook", { scope: ["email"] })
+);
+
+app.get(
+  "/auth/facebook/secrets",
+  passport.authenticate("facebook", { failureRedirect: "/login" }),
   (req, res) => {
     // Successful authentication, redirect secrets page.
     res.redirect("/secrets");
