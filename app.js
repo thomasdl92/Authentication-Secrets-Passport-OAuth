@@ -34,6 +34,7 @@ mongoose.connect("mongodb://localhost:27017/userDB");
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
+  googleId: String,
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -43,8 +44,15 @@ const User = new mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy());
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser((id, done) => {
+  User.findById(id).then((user) => {
+    done(null, user);
+  });
+});
 
 passport.use(
   new GoogleStrategy(
@@ -52,11 +60,31 @@ passport.use(
       clientID: process.env.CLIENT_ID,
       clientSecret: process.env.CLIENT_SECRET,
       callbackURL: "http://localhost:3000/auth/google/secrets",
-      userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
-    function (accessToken, refreshToken, profile, cb) {
-      User.findOrCreate({ googleId: profile.id }, function (err, user) {
-        return cb(err, user);
+    (accessToken, refreshToken, profile, cb) => {
+      // Users.findOrCreate({googleId:profile.id}, (err, user)=>{
+      //   if(user){
+      //     console.log('User was found');
+      //   }else{
+      //     console.log(err);
+      //   }
+      //   return cb(err,user);
+      // });
+      User.findOne({ googleId: profile.id }, (err, user) => {
+        if (user) {
+          console.log("User was Found");
+          cb(null, user);
+        } else {
+          console.log("No user found, adding new user to DB");
+          newUser = new User({
+            googleId: profile.id,
+            username: profile.name.givenName,
+          });
+          newUser.save(() => {
+            console.log("This user is saved");
+          });
+          cb(null, newUser);
+        }
       });
     }
   )
